@@ -1,0 +1,46 @@
+scan:
+  targets:
+    - "192.168.1.0/24"
+  asns: []
+  ports: "22,80,443,3306,5432,8080-8090"
+  rate: 5000
+  banners: true
+  retries: 2
+  wait: 30
+  adapter_ip: null
+  adapter_port: null
+  nmap_validation: true
+  nmap_top_ports: 50
+
+notifications:
+  telegram:
+    enabled: true
+    bot_token: "YOUR_BOT_TOKEN"
+    chat_id: "YOUR_CHAT_ID"
+  email:
+    enabled: true
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    user: "your_email@gmail.com"
+    password: "your_app_password"
+    to: "admin@example.com"
+    use_tls: true
+
+cve:
+  enabled: true
+  vulners_api_key: "YOUR_VULNERS_API_KEY"
+
+exploit_db:
+  enabled: true
+
+scheduler:
+  enabled: true
+  interval_minutes: 60
+
+dashboard:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8080
+
+database:
+  path: "data/findings.db"

@@ -1,28 +1,86 @@
 import httpx
+import re
 from typing import List, Dict, Any
 from core.models import PortFinding, CVEConfig
 
 
 class VulnersChecker:
-    """Checks CVEs via Vulners API."""
+    """Checks CVEs via Vulners API with banner-based vendor/product detection."""
+
+    # Banner keyword → (vendor, product) mapping for Vulners
+    BANNER_MAP = {
+        r'OpenSSH': ('openbsd', 'openssh'),
+        r'nginx': ('nginx', 'nginx'),
+        r'Apache(?:/|\s)': ('apache', 'http_server'),
+        r'Microsoft-IIS': ('microsoft', 'iis'),
+        r'lighttpd': ('lighttpd', 'lighttpd'),
+        r'ProFTPD': ('proftpd', 'proftpd'),
+        r'vsftpd': ('vsftpd', 'vsftpd'),
+        r'FileZilla': ('filezilla', 'filezilla_server'),
+        r'Postfix': ('postfix', 'postfix'),
+        r'Exim': ('exim', 'exim'),
+        r'MySQL': ('oracle', 'mysql'),
+        r'MariaDB': ('mariadb', 'mariadb'),
+        r'PostgreSQL': ('postgresql', 'postgresql'),
+        r'Microsoft SQL Server': ('microsoft', 'sql_server'),
+        r'OpenSSL': ('openssl', 'openssl'),
+        r'PHP': ('php', 'php'),
+        r'Tomcat': ('apache', 'tomcat'),
+        r'Jetty': ('eclipse', 'jetty'),
+    }
 
     def __init__(self, config: CVEConfig):
         self.enabled = config.enabled
         self.api_key = config.vulners_api_key
         self.base_url = "https://vulners.com/api/v4"
 
+    def _detect_vendor_product(self, finding: PortFinding) -> tuple:
+        """Extract real vendor/product from banner or service type."""
+        banner = finding.banner or ""
+        service = finding.service.value
+
+        # Try banner keywords first
+        for pattern, (vendor, product) in self.BANNER_MAP.items():
+            if re.search(pattern, banner, re.IGNORECASE):
+                return vendor, product
+
+        # Fallback: service-based generic mapping
+        service_map = {
+            'ssh': ('openbsd', 'openssh'),
+            'http': ('apache', 'http_server'),
+            'https': ('apache', 'http_server'),
+            'ftp': ('proftpd', 'proftpd'),
+            'smtp': ('postfix', 'postfix'),
+            'mysql': ('oracle', 'mysql'),
+            'postgresql': ('postgresql', 'postgresql'),
+            'telnet': ('linux', 'telnet'),
+            'rdp': ('microsoft', 'remote_desktop'),
+            'vnc': ('realvnc', 'vnc'),
+        }
+        return service_map.get(service, (service, service))
+
+    def _clean_version(self, version: str) -> str:
+        """Extract clean version number for Vulners."""
+        if not version:
+            return ""
+        # Take first version-like sequence (e.g. "Apache/2.4.41" → "2.4.41")
+        match = re.search(r'[0-9]+(?:\.[0-9]+)+', version)
+        return match.group(0) if match else version.split()[0]
+
     async def check(self, finding: PortFinding) -> List[Dict[str, Any]]:
         if not self.enabled or not self.api_key:
             return []
 
-        if not finding.service_version:
+        version = self._clean_version(finding.service_version or "")
+        if not version:
             return []
 
-        # Build software audit request
+        vendor, product = self._detect_vendor_product(finding)
+
         software = {
-            "vendor": finding.service.value,
-            "product": finding.service.value,
-            "version": finding.service_version
+            "vendor": vendor,
+            "product": product,
+            "version": version
         }
 
         try:

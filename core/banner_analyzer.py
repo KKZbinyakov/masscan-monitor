@@ -16,7 +16,7 @@ class BannerAnalyzer:
             re.compile(r'^<\?xml', re.IGNORECASE),
             re.compile(r'^<html', re.IGNORECASE),
             re.compile(r'^<!DOCTYPE', re.IGNORECASE),
-            re.compile(r'^\{.*\}$'),  # JSON response
+            re.compile(r'^\{.*\}$', re.DOTALL),  # JSON response
         ],
         ServiceType.FTP: [
             re.compile(r'^220 .*FTP', re.IGNORECASE),

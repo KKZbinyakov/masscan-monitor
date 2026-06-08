@@ -65,45 +65,44 @@ class MasscanMonitor:
             logger.warning("searchsploit not found. Install: sudo apt-get install exploitdb")
             self.exploit_checker.enabled = False
 
+    async def _process_findings(self, findings: list) -> list:
+        """Analyze banners, validate with nmap, check CVEs/exploits."""
+        # 1. Banner analysis
+        for finding in findings:
+            BannerAnalyzer.analyze(finding)
+
+        # 2. Batch Nmap validation (much faster than per-port)
+        if self.validator.enabled:
+            await self.validator.validate_batch(findings)
+
+        # 3. CVE & exploit checks
+        for finding in findings:
+            finding.cves = await self.cve_checker.check(finding)
+            if self.exploit_checker.enabled:
+                exploits = await self.exploit_checker.check(finding)
+                if exploits:
+                    finding.cves.extend([{"exploit-db": e} for e in exploits])
+        return findings
+
     async def run_scan(self):
         """Execute a single scan cycle."""
-        scan_id = await self.db.start_scan(
-            targets=",".join(self.config.scan.targets),
-            ports=self.config.scan.ports
-        )
+        targets = ",".join(self.config.scan.targets)
+        scan_id = await self.db.start_scan(targets=targets, ports=self.config.scan.ports)
 
         try:
             findings = await self.scanner.run()
-            new_findings = []
             logger.info(f"Scan complete: {len(findings)} raw findings")
 
+            findings = await self._process_findings(findings)
+
+            new_findings = []
             for finding in findings:
-                # 1. Analyze banner for service detection
-                finding = BannerAnalyzer.analyze(finding)
-
-                # 2. Optional Nmap validation for version accuracy
-                nmap_version = await self.validator.validate(finding)
-                if nmap_version:
-                    finding.service_version = nmap_version
-
-                # 3. Check CVEs via Vulners API
-                finding.cves = await self.cve_checker.check(finding)
-
-                # 4. Check exploit-db for known exploits
-                if self.exploit_checker.enabled:
-                    exploits = await self.exploit_checker.check(finding)
-                    if exploits:
-                        finding.cves.extend([{"exploit-db": e} for e in exploits])
-
-                # 5. Persist and check if new
                 is_new = await self.db.save_finding(finding)
                 finding.is_new = is_new
-
                 if is_new:
                     new_findings.append(finding)
                     logger.info(f"NEW: {finding.ip}:{finding.port} {finding.service.value} {finding.service_version or ''}")
 
-            # 6. Send notifications for new findings
             if new_findings:
                 logger.info(f"Sending notifications for {len(new_findings)} new findings")
                 await self.notifier.send_notifications(new_findings)
@@ -123,39 +122,50 @@ class MasscanMonitor:
         while not self._shutdown_event.is_set():
             await self.run_scan()
             try:
-                await asyncio.wait_for(self._shutdown_event.wait(), timeout=self.config.scheduler.interval_minutes * 60)
+                await asyncio.wait_for(
+                    self._shutdown_event.wait(),
+                    timeout=self.config.scheduler.interval_minutes * 60
+                )
             except asyncio.TimeoutError:
                 pass
+
+    async def _run_dashboard(self):
+        """Start FastAPI dashboard server."""
+        set_db(self.db)
+        config = uvicorn.Config(
+            dashboard_app,
+            host=self.config.dashboard.host,
+            port=self.config.dashboard.port,
+            log_level="info"
+        )
+        server = uvicorn.Server(config)
+        await server.serve()
 
     async def run(self):
         """Main entry point."""
         self._check_dependencies()
         await self.db.connect()
 
+        tasks = []
+
+        # Always run initial scan
+        await self.run_scan()
+
         if self.config.scheduler.enabled:
-            # Start periodic scanning
             self.scheduler.start(self.run_scan)
+            tasks.append(self._scan_loop())
 
-            # Run initial scan immediately
-            await self.run_scan()
+        if self.config.dashboard.enabled:
+            tasks.append(self._run_dashboard())
 
-            if self.config.dashboard.enabled:
-                # Inject DB into dashboard and start web server
-                set_db(self.db)
-                config = uvicorn.Config(
-                    dashboard_app,
-                    host=self.config.dashboard.host,
-                    port=self.config.dashboard.port,
-                    log_level="info"
-                )
-                server = uvicorn.Server(config)
-                await server.serve()
-            else:
-                # Keep event loop alive with periodic scans
-                await self._scan_loop()
+        if tasks:
+            try:
+                await asyncio.gather(*tasks)
+            except asyncio.CancelledError:
+                pass
         else:
-            # Single scan mode
-            await self.run_scan()
+            # Single scan mode, nothing else to do
+            pass
 
         await self.db.close()
 

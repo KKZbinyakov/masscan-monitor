@@ -83,13 +83,23 @@ class Database:
     async def get_recent(self, limit: int = 100) -> List[Dict[str, Any]]:
         async with self._conn.execute(
             """SELECT ip, port, protocol, banner, service, service_version,
-                      first_seen, last_seen, notified
+                      first_seen, last_seen, notified, cves
                FROM findings ORDER BY last_seen DESC LIMIT ?""",
             (limit,)
         ) as cursor:
             rows = await cursor.fetchall()
             cols = [d[0] for d in cursor.description]
-            return [dict(zip(cols, row)) for row in rows]
+            results = []
+            for row in rows:
+                row_dict = dict(zip(cols, row))
+                # Deserialize CVEs JSON back to list
+                cves_raw = row_dict.get("cves")
+                try:
+                    row_dict["cves"] = json.loads(cves_raw) if cves_raw else []
+                except (json.JSONDecodeError, TypeError):
+                    row_dict["cves"] = []
+                results.append(row_dict)
+            return results
 
     async def get_stats(self) -> Dict[str, Any]:
         async with self._conn.execute("SELECT COUNT(*) FROM findings") as cursor:

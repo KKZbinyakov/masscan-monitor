@@ -34,9 +34,15 @@ sudo apt-get install masscan nmap exploitdb
 # 2. Set capabilities for masscan (run without sudo)
 sudo setcap cap_net_raw+ep $(which masscan)
 
-# 3. Install Python dependencies
+# 3. Create virtual environment (recommended for Kali/Debian)
+python3 -m venv venv
+source venv/bin/activate
+
+# 4. Install Python dependencies
 pip install -r requirements.txt
 ```
+
+**Note:** On Kali Linux and other Debian-based systems with `externally-managed-environment`, use `venv` to avoid pip errors.
 
 ## Configuration
 
@@ -125,9 +131,63 @@ masscan-monitor/
 │   └── asn_resolver.py      # BGPView ASN lookup
 ├── web/
 │   └── dashboard.py         # FastAPI application
-└── templates/
-    └── index.html           # Responsive dashboard
+├── templates/
+│   └── index.html           # Responsive dashboard
+└── tests/                   # Automated test suite
+    ├── conftest.py          # Shared fixtures & mocks
+    ├── test_banner_analyzer.py
+    ├── test_cve_checker.py
+    ├── test_database.py
+    ├── test_exploit_checker.py
+    ├── test_models.py
+    ├── test_nmap_validator.py
+    ├── test_notifier.py
+    ├── test_scanner.py
+    └── test_scheduler.py
 ```
+
+## Testing
+
+Automated test suite covers core modules without requiring live network access:
+
+```bash
+# Install test dependencies
+pip install pytest pytest-asyncio pytest-cov
+
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage report
+pytest --cov=core tests/
+
+# Run specific module
+pytest tests/test_banner_analyzer.py -v
+pytest tests/test_database.py -v
+pytest tests/test_cve_checker.py -v
+```
+
+### Test coverage
+
+| File | What is tested |
+|---|---|
+| `test_models.py` | Pydantic model validation, ServiceType Enum |
+| `test_scanner.py` | Masscan JSON output parsing, ASN resolution mocking |
+| `test_database.py` | SQLite async operations, deduplication logic, CVE JSON serialization |
+| `test_banner_analyzer.py` | Regex signature matching, port fallback, version extraction |
+| `test_nmap_validator.py` | Batch validation grouping, XML parsing, per-port fallback |
+| `test_cve_checker.py` | Banner heuristics for vendor/product, Vulners API mocking |
+| `test_exploit_checker.py` | searchsploit CLI mocking, result filtering |
+| `test_notifier.py` | Telegram message formatting, Email HTML generation |
+| `test_scheduler.py` | APScheduler job registration, interval configuration |
+
+### Fixtures (`conftest.py`)
+
+Shared mocks and test data:
+- `mock_finding` — `PortFinding` with preset fields
+- `mock_config` — `AppConfig` for isolation from real config.yaml
+- `temp_db` — temporary SQLite DB in `/tmp` for database tests
+- `mock_vulners_response` — fake Vulners API response
+- `mock_masscan_output` — sample Masscan JSON output
 
 ## API Endpoints
 

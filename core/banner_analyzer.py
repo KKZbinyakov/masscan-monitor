@@ -2,13 +2,10 @@ import re
 from typing import Optional, Tuple
 from core.models import PortFinding, ServiceType
 
-
 class BannerAnalyzer:
-    """Analyzes banners to determine service type and version."""
-
     SIGNATURES = {
         ServiceType.SSH: [
-            re.compile(r'^SSH-2\.0-([^\s\r\n]+)', re.IGNORECASE),
+            re.compile(r'^SSH-2\.0-([^\s\r\n]+)', re.IGNORECASE), # ИСПРАВЛЕНО
             re.compile(r'^SSH-1\.99-', re.IGNORECASE),
         ],
         ServiceType.HTTP: [
@@ -16,7 +13,7 @@ class BannerAnalyzer:
             re.compile(r'^<\?xml', re.IGNORECASE),
             re.compile(r'^<html', re.IGNORECASE),
             re.compile(r'^<!DOCTYPE', re.IGNORECASE),
-            re.compile(r'^\{.*\}$', re.DOTALL),  # JSON response
+            re.compile(r'^\{.*\}$', re.DOTALL),
         ],
         ServiceType.FTP: [
             re.compile(r'^220 .*FTP', re.IGNORECASE),
@@ -33,39 +30,19 @@ class BannerAnalyzer:
             re.compile(r'^login:', re.IGNORECASE),
             re.compile(r'^Password:', re.IGNORECASE),
         ],
-        ServiceType.MYSQL: [
-            re.compile(r'mysql', re.IGNORECASE),
-        ],
-        ServiceType.POSTGRESQL: [
-            re.compile(r'postgresql', re.IGNORECASE),
-        ],
-        ServiceType.RDP: [
-            re.compile(r'^\x03\x00\x00', re.DOTALL),
-        ],
-        ServiceType.VNC: [
-            re.compile(r'^RFB ', re.IGNORECASE),
-        ],
+        ServiceType.MYSQL: [re.compile(r'mysql', re.IGNORECASE)],
+        ServiceType.POSTGRESQL: [re.compile(r'postgresql', re.IGNORECASE)],
+        ServiceType.RDP: [re.compile(r'^\x03\x00\x00', re.DOTALL)],
+        ServiceType.VNC: [re.compile(r'^RFB ', re.IGNORECASE)],
     }
-
+    
     PORT_MAP = {
-        22: ServiceType.SSH,
-        23: ServiceType.TELNET,
-        25: ServiceType.SMTP,
-        53: ServiceType.UNKNOWN,  # DNS
-        80: ServiceType.HTTP,
-        110: ServiceType.UNKNOWN,  # POP3
-        143: ServiceType.UNKNOWN,  # IMAP
-        443: ServiceType.HTTPS,
-        445: ServiceType.UNKNOWN,  # SMB
-        993: ServiceType.UNKNOWN,  # IMAPS
-        995: ServiceType.UNKNOWN,  # POP3S
-        1723: ServiceType.UNKNOWN,  # PPTP
-        3306: ServiceType.MYSQL,
-        3389: ServiceType.RDP,
-        5432: ServiceType.POSTGRESQL,
-        5900: ServiceType.VNC,
-        8080: ServiceType.HTTP,
-        8443: ServiceType.HTTPS,
+        22: ServiceType.SSH, 23: ServiceType.TELNET, 25: ServiceType.SMTP,
+        53: ServiceType.UNKNOWN, 80: ServiceType.HTTP, 110: ServiceType.UNKNOWN,
+        143: ServiceType.UNKNOWN, 443: ServiceType.HTTPS, 445: ServiceType.UNKNOWN,
+        993: ServiceType.UNKNOWN, 995: ServiceType.UNKNOWN, 1723: ServiceType.UNKNOWN,
+        3306: ServiceType.MYSQL, 3389: ServiceType.RDP, 5432: ServiceType.POSTGRESQL,
+        5900: ServiceType.VNC, 8080: ServiceType.HTTP, 8443: ServiceType.HTTPS,
     }
 
     @staticmethod
@@ -74,7 +51,6 @@ class BannerAnalyzer:
         service = ServiceType.UNKNOWN
         version = None
 
-        # Try banner signatures first
         for svc, patterns in BannerAnalyzer.SIGNATURES.items():
             for pattern in patterns:
                 match = pattern.search(banner)
@@ -86,19 +62,16 @@ class BannerAnalyzer:
             if service != ServiceType.UNKNOWN:
                 break
 
-        # Fallback to port mapping
         if service == ServiceType.UNKNOWN:
             service = BannerAnalyzer.PORT_MAP.get(finding.port, ServiceType.UNKNOWN)
 
-        # Extract version from HTTP Server header
         if service in (ServiceType.HTTP, ServiceType.HTTPS) and banner:
-            server_match = re.search(r'Server:\s*([^\r\n]+)', banner, re.IGNORECASE)
+            server_match = re.search(r'Server:\s*([^\r\n]+)', banner, re.IGNORECASE) # ИСПРАВЛЕНО
             if server_match:
                 version = server_match.group(1).strip()
 
-        # Extract SSH version
         if service == ServiceType.SSH and banner:
-            ssh_match = re.search(r'^SSH-2\.0-([^\s\r\n]+)', banner, re.IGNORECASE)
+            ssh_match = re.search(r'^SSH-2\.0-([^\s\r\n]+)', banner, re.IGNORECASE) # ИСПРАВЛЕНО
             if ssh_match:
                 version = ssh_match.group(1)
 

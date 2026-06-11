@@ -1,9 +1,8 @@
 scan:
-  targets:
-    - "192.168.1.0/24"
+  targets: ["192.168.1.0/24", "10.0.0.1"]
   asns: []
   ports: "22,80,443,3306,5432,8080-8090"
-  rate: 5000
+  rate: 1000
   banners: true
   retries: 2
   wait: 30

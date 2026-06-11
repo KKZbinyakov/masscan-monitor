@@ -19,8 +19,8 @@ class ServiceType(str, Enum):
 
 
 class PortFinding(BaseModel):
-    ip: str
-    port: int
+    ip: str = Field(..., pattern=r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
+    port: int = Field(..., ge=1, le=65535)
     protocol: str = "tcp"
     status: str = "open"
     reason: Optional[str] = None

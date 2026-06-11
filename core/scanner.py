@@ -34,7 +34,6 @@ class MasscanScanner:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             output_file = f.name
             
-        # ОПТИМИЗАЦИЯ: Запись целей во временный файл для обхода лимита ARG_MAX
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("\n".join(targets))
             targets_file = f.name
@@ -42,7 +41,7 @@ class MasscanScanner:
         cmd = [
             "masscan", "-p", self.config.ports, "--rate", str(self.config.rate),
             "--retries", str(self.config.retries), "--wait", str(self.config.wait),
-            "-oJ", output_file, "-iL", targets_file # Используем файл с целями
+            "-oJ", output_file, "-iL", targets_file
         ]
 
         if self.config.banners: cmd.append("--banners")
@@ -63,7 +62,6 @@ class MasscanScanner:
             findings = self._parse_output(output_file)
             return findings
         finally:
-            # Очистка временных файлов
             if os.path.exists(output_file): os.unlink(output_file)
             if os.path.exists(targets_file): os.unlink(targets_file)
 
@@ -72,7 +70,6 @@ class MasscanScanner:
         try:
             with open(output_file, "r") as f:
                 content = f.read()
-            # ИСПРАВЛЕНО: корректная замена переносов строк
             content = content.replace(",\n]", "\n]") 
             data = json.loads(content)
             if isinstance(data, list):

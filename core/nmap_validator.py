@@ -61,7 +61,6 @@ class NmapValidator:
         interesting_ports = {21, 22, 23, 25, 53, 80, 110, 143, 443, 445,
                              993, 995, 1723, 3306, 3389, 5432, 5900, 8080, 8443}
 
-        # Group findings by IP
         by_ip: Dict[str, List[PortFinding]] = defaultdict(list)
         for f in findings:
             if f.port in interesting_ports:
@@ -92,7 +91,6 @@ class NmapValidator:
                 versions = self._parse_batch(output_file)
                 os.unlink(output_file)
 
-                # Apply parsed versions back to findings
                 for f in ip_findings:
                     key = (f.ip, f.port)
                     if key in versions:

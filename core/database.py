@@ -92,7 +92,6 @@ class Database:
             results = []
             for row in rows:
                 row_dict = dict(zip(cols, row))
-                # Deserialize CVEs JSON back to list
                 cves_raw = row_dict.get("cves")
                 try:
                     row_dict["cves"] = json.loads(cves_raw) if cves_raw else []

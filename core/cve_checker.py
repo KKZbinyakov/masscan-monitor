@@ -7,7 +7,6 @@ from core.models import PortFinding, CVEConfig
 class VulnersChecker:
     """Checks CVEs via Vulners API with banner-based vendor/product detection."""
 
-    # Banner keyword → (vendor, product) mapping for Vulners
     BANNER_MAP = {
         r'OpenSSH': ('openbsd', 'openssh'),
         r'nginx': ('nginx', 'nginx'),
@@ -39,12 +38,10 @@ class VulnersChecker:
         banner = finding.banner or ""
         service = finding.service.value
 
-        # Try banner keywords first
         for pattern, (vendor, product) in self.BANNER_MAP.items():
             if re.search(pattern, banner, re.IGNORECASE):
                 return vendor, product
 
-        # Fallback: service-based generic mapping
         service_map = {
             'ssh': ('openbsd', 'openssh'),
             'http': ('apache', 'http_server'),
@@ -63,7 +60,6 @@ class VulnersChecker:
         """Extract clean version number for Vulners."""
         if not version:
             return ""
-        # Take first version-like sequence (e.g. "Apache/2.4.41" → "2.4.41")
         match = re.search(r'[0-9]+(?:\.[0-9]+)+', version)
         return match.group(0) if match else version.split()[0]
 

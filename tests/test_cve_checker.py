@@ -92,14 +92,13 @@ class TestVulnersChecker:
         checker = VulnersChecker(config)
         finding = PortFinding(ip="10.0.0.1", port=80)
         
-        # Нельзя await в sync тесте, но можно проверить логику напрямую
         assert checker.enabled is False
 
     def test_no_api_key_disables_checker(self):
         """Без ключа — чекер логически отключен."""
         config = CVEConfig(enabled=True, vulners_api_key=None)
         checker = VulnersChecker(config)
-        assert not checker.api_key  # Пустой ключ
+        assert not checker.api_key
 
     @pytest.mark.asyncio
     async def test_check_returns_empty_when_disabled(self):
@@ -115,7 +114,7 @@ class TestVulnersChecker:
     async def test_check_returns_empty_without_version(self, cve_config):
         """Без версии нечего проверять."""
         checker = VulnersChecker(cve_config)
-        finding = PortFinding(ip="10.0.0.1", port=80)  # Нет service_version
+        finding = PortFinding(ip="10.0.0.1", port=80)
         
         result = await checker.check(finding)
         assert result == []

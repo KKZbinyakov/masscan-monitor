@@ -38,7 +38,6 @@
     </div>
 
     <div class="container">
-        <!-- Статистика -->
         <div class="row">
             <div class="col-md-4">
                 <div class="card stat-card">
@@ -60,7 +59,6 @@
             </div>
         </div>
 
-        <!-- Типы сервисов -->
         {% if services %}
         <div class="card p-3 mb-4">
             <h5 class="mb-3"><i class="bi bi-pie-chart"></i> Распределение сервисов</h5>
@@ -74,7 +72,6 @@
         </div>
         {% endif %}
 
-        <!-- Таблица findings -->
         <div class="card">
             <div class="card-header bg-white">
                 <h5 class="mb-0"><i class="bi bi-list-ul"></i> Последние обнаружения ({{ recent|length }})</h5>

@@ -39,23 +39,21 @@ class Notifier:
                 parts = []
                 if cve_count: parts.append(f"CVEs: {cve_count}")
                 if exploit_count: parts.append(f"Exploits: {exploit_count}")
-                if parts: cve_text = f"\n⚠️ {', '.join(parts)}" # ИСПРАВЛЕНО
+                if parts: cve_text = f"\n⚠️ {', '.join(parts)}"
 
-            # ИСПРАВЛЕНО: добавлен \n
             line = f"🌐 `{f.ip}:{f.port}` ({f.protocol.upper()})\n🔧 Service: `{f.service.value}`"
             if f.service_version:
                 line += f" `{f.service_version}`"
             line += cve_text
             
             if f.banner:
-                # Экранируем спецсимволы Markdown, чтобы Telegram не вернул 400 Bad Request
                 safe_banner = f.banner[:100].replace("\n", " ").replace("\r", "")
                 safe_banner = safe_banner.replace("_", "\\_").replace("*", "\\*").replace("`", "\\`")
                 line += f"\n📄 Banner: `{safe_banner}`"
             lines.append(line)
             lines.append("")
 
-        message = "\n".join(lines) # ИСПРАВЛЕНО
+        message = "\n".join(lines)
 
         try:
             async with httpx.AsyncClient() as client:
@@ -64,7 +62,7 @@ class Notifier:
                     json={
                         "chat_id": self.config.telegram.chat_id,
                         "text": message,
-                        "parse_mode": "MarkdownV2", # Используем V2 с экранированием
+                        "parse_mode": "MarkdownV2",
                         "disable_web_page_preview": True
                     },
                     timeout=30.0
@@ -72,7 +70,6 @@ class Notifier:
                 response.raise_for_status()
         except Exception as e:
             logger.error(f"Telegram notification failed: {e}")
-            # Fallback: пробуем отправить без parse_mode, если Markdown сломался
             try:
                 async with httpx.AsyncClient() as client:
                     await client.post(
@@ -84,5 +81,58 @@ class Notifier:
                 raise
 
     async def _send_email(self, findings: List[PortFinding]):
-        # ... (Ваш код отправки email остается без изменений, он корректен)
-        pass
+        cfg = self.config.email
+        if not cfg.smtp_host or not cfg.user or not cfg.to:
+            logger.warning("Email not configured: missing smtp_host, user or to")
+            return
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"[Masscan Monitor] {len(findings)} new open ports detected"
+        msg["From"] = cfg.user
+        msg["To"] = cfg.to
+
+        html = """<html><body><h2>🔴 New Open Ports Detected</h2><table border="1" cellpadding="5">"""
+        html += "<tr><th>IP</th><th>Port</th><th>Protocol</th><th>Service</th><th>Version</th><th>Banner</th><th>Risk</th></tr>"
+
+        for f in findings:
+            cve_count = len([c for c in f.cves if "exploit-db" not in c])
+            exploit_count = len([c for c in f.cves if "exploit-db" in c])
+            risk_badges = []
+            if cve_count:
+                risk_badges.append(f'<span style="color:red">CVEs: {cve_count}</span>')
+            if exploit_count:
+                risk_badges.append(f'<span style="color:orange">Exploits: {exploit_count}</span>')
+            risk_html = " ".join(risk_badges) if risk_badges else "None"
+
+            banner = (f.banner or "N/A")[:120].replace("<", "&lt;").replace(">", "&gt;")
+            html += (
+                f"<tr>"
+                f"<td><b>{f.ip}</b></td>"
+                f"<td>{f.port}</td>"
+                f"<td>{f.protocol.upper()}</td>"
+                f"<td>{f.service.value}</td>"
+                f"<td>{f.service_version or 'N/A'}</td>"
+                f"<td>{banner}</td>"
+                f"<td>{risk_html}</td>"
+                f"</tr>"
+            )
+
+        html += "</table></body></html>"
+        msg.attach(MIMEText(html, "html"))
+
+        try:
+            smtp = SMTP(
+                hostname=cfg.smtp_host,
+                port=cfg.smtp_port,
+                use_tls=cfg.use_tls
+            )
+            await smtp.connect()
+            if cfg.use_tls:
+                await smtp.starttls()
+            await smtp.login(cfg.user, cfg.password)
+            await smtp.send_message(msg)
+            await smtp.quit()
+            logger.info(f"Email notification sent to {cfg.to}")
+        except Exception as e:
+            logger.error(f"Email notification failed: {e}")
+            raise

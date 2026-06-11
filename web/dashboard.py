@@ -7,10 +7,8 @@ from core.database import Database
 
 app = FastAPI(title="Masscan Monitor Dashboard")
 
-# Templates relative to project root
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
 
-# Global database instance (set in main.py)
 _db_instance = None
 
 def set_db(db: Database):
@@ -26,8 +24,7 @@ async def get_db() -> Database:
 async def dashboard(request: Request, db: Database = Depends(get_db)):
     recent = await db.get_recent(limit=100)
     stats = await db.get_stats()
-    
-    # ИСПРАВЛЕНО: используем именованные аргументы (требование Starlette >= 0.28)
+
     return templates.TemplateResponse(
         name="index.html",
         request=request,

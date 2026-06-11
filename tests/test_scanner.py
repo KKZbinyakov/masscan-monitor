@@ -67,11 +67,12 @@ class TestMasscanScanner:
         
         try:
             findings = scanner._parse_output(path)
-            assert len(findings) == 3
+            assert len(findings) == 3  # 3 порта total
             
             ips = {f.ip for f in findings}
             assert ips == {"93.184.216.34", "192.0.2.1"}
-
+            
+            # Проверяем баннер
             ssh_finding = [f for f in findings if f.port == 22][0]
             assert "SSH-2.0" in ssh_finding.banner
         finally:

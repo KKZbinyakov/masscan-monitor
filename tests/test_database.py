@@ -102,7 +102,7 @@ class TestDatabase:
         f2 = PortFinding(ip="10.0.0.2", port=443)
 
         await db.save_finding(f1)
-        await asyncio.sleep(1.1)
+        await asyncio.sleep(1.1)  # Гарантируем разницу во времени для SQLite
         await db.save_finding(f2)
 
         recent = await db.get_recent(limit=10)
@@ -183,4 +183,4 @@ class TestDatabase:
         db = Database(DatabaseConfig(path=":memory:"))
         await db.connect()
         await db.close()
-        await db.close()
+        await db.close()  # Повторное закрытие не должно падать

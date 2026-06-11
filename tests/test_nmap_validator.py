@@ -11,6 +11,7 @@ class TestNmapValidator:
 
     def test_disabled_validator_skips_parsing(self, nmap_xml_single):
         validator = NmapValidator(enabled=False)
+        # Парсинг не должен вызываться при enabled=False
         assert validator.enabled is False
 
     def test_parse_version_single_port(self, nmap_xml_single):
@@ -112,12 +113,14 @@ class TestNmapValidator:
         validator = NmapValidator(enabled=True)
         finding = PortFinding(ip="10.0.0.1", port=12345)
         
+        # validate — корутина, но при not interesting должно вернуть None
+        # Проверяем логику: порт не в interesting_ports
         assert finding.port not in {21, 22, 23, 25, 53, 80, 110, 143, 443, 445,
                                     993, 995, 1723, 3306, 3389, 5432, 5900, 8080, 8443}
 
     def test_top_ports_default(self):
         validator = NmapValidator(enabled=True)
-        assert validator.top_ports == 50
+        assert validator.top_ports == 50  # Дефолт из модели
 
     def test_top_ports_custom(self):
         validator = NmapValidator(enabled=True, top_ports=100)

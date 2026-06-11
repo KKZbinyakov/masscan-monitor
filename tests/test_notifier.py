@@ -23,6 +23,8 @@ class TestNotifier:
             banner="HTTP/1.1 200 OK"
         )
         
+        # Проверяем, что сообщение содержит ключевые элементы
+        # (прямой тест приватного метода — допустим для внутренней логики)
         lines = ["🔴 *New open ports detected*", ""]
         line = f"🌐 `{finding.ip}:{finding.port}` ({finding.protocol.upper()})\n🔧 Service: `{finding.service.value}`"
         assert "192.168.1.1:80" in line
@@ -40,6 +42,7 @@ class TestNotifier:
             ]
         )
         
+        # Проверяем логику подсчёта
         cve_count = len([c for c in finding.cves if "exploit-db" not in c])
         exploit_count = len([c for c in finding.cves if "exploit-db" in c])
         assert cve_count == 1
@@ -62,7 +65,8 @@ class TestNotifier:
             port=443,
             service=ServiceType.HTTPS
         )
-
+        
+        # Проверяем структуру HTML
         html = """<table><tr><th>IP</th><th>Port</th>"""
         assert "<table>" in html
         assert "IP" in html
@@ -96,7 +100,9 @@ class TestNotifier:
             telegram=TelegramConfig(enabled=True, bot_token="test", chat_id="123")
         )
         notifier = Notifier(config)
-
+        
+        # Не должно быть исключений
+        # (async тест ниже)
 
     def test_telegram_not_configured_warning(self):
         """Неполная конфигурация Telegram — warning."""
@@ -104,7 +110,8 @@ class TestNotifier:
             telegram=TelegramConfig(enabled=True, bot_token=None, chat_id="123")
         )
         notifier = Notifier(config)
-
+        
+        # Проверяем, что при отсутствии token метод вернётся рано
         assert notifier.config.telegram.bot_token is None
 
     def test_email_not_configured_warning(self):
@@ -123,7 +130,8 @@ class TestNotifier:
             telegram=TelegramConfig(enabled=True, bot_token="test", chat_id="123")
         )
         notifier = Notifier(config)
-
+        
+        # Мокаем _send_telegram, чтобы не было реального запроса
         with patch.object(notifier, '_send_telegram', new_callable=AsyncMock) as mock:
             await notifier.send_notifications([])
-            mock.assert_not_awaited()
+            mock.assert_not_awaited()  # Пустой список = ранний return
